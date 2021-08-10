@@ -1,9 +1,10 @@
 use super::pixel::PixelColor;
-use super::tile::Tile;
-use std::cell::RefCell;
+use super::tile::{Tile, TileCell};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt::{self, Debug, Formatter};
+
+pub type CandidateTable<'a> = Vec<Vec<Candidate<'a>>>;
 
 pub enum Candidacy {
   Available,
@@ -11,14 +12,13 @@ pub enum Candidacy {
   End,
 }
 
-#[derive(Debug)]
 pub struct Candidate<'a> {
-  tile: &'a RefCell<Option<&'a Tile<'a>>>,
+  tile: &'a TileCell<'a>,
   compat: usize,
 }
 
 impl<'a> Candidate<'a> {
-  pub fn new(tile: &'a RefCell<Option<&'a Tile<'a>>>, compat: usize) -> Candidate<'a> {
+  pub fn new(tile: &'a TileCell<'a>, compat: usize) -> Candidate<'a> {
     Candidate { tile, compat }
   }
 
@@ -97,7 +97,7 @@ impl<'a> Group<'a> {
 
 impl Debug for Group<'_> {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    let color_count = Self::colors(&self.tiles, None);
+    let color_count = Self::colors(&self.tiles, None).len();
 
     f.debug_struct("Group")
       .field("Tiles", &self.tiles.len())

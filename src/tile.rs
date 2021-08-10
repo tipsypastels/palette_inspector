@@ -1,7 +1,9 @@
 use super::pixel::PixelColor;
 use image::{DynamicImage, GenericImageView, ImageError, SubImage as View};
+use std::cell::RefCell;
 use std::collections::HashSet;
-use std::fmt::{self, Debug, Formatter};
+
+pub type TileCell<'a> = RefCell<Option<&'a Tile<'a>>>;
 
 pub struct Tile<'a> {
   view: View<&'a DynamicImage>,
@@ -43,9 +45,6 @@ impl<'a> Tile<'a> {
     &self.colors
   }
 
-  // NOTE: Marked unsafe because calling this method
-  // without first checking that the two tiles are different
-  // will lead to inaccurate results.
   pub fn compat(&self, other: &Tile<'_>) -> usize {
     if self == other {
       return 0;
@@ -78,19 +77,5 @@ impl<'a> Tile<'a> {
 impl PartialEq for Tile<'_> {
   fn eq(&self, other: &Tile<'_>) -> bool {
     self.tile_coords == other.tile_coords
-  }
-}
-
-impl Debug for Tile<'_> {
-  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    // let mut sorted_colors = self.colors.iter().collect::<Vec<_>>();
-    // sorted_colors.sort_by(|a, b| a.cmp(b));
-
-    // f.debug_struct("Tile")
-    //   .field("coords", &self.tile_coords)
-    //   .field("colors", &sorted_colors)
-    //   .finish()
-
-    f.debug_tuple("Tile").field(&self.tile_coords).finish()
   }
 }

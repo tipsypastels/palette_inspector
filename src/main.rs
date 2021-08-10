@@ -2,12 +2,12 @@ mod group;
 mod pixel;
 mod tile;
 
-use group::{Candidacy, Candidate, Group};
+use group::{Candidacy, Candidate, CandidateTable, Group};
 use image::{DynamicImage, GenericImageView};
 use std::cell::RefCell;
 use std::env;
 use std::fs;
-use tile::Tile;
+use tile::{Tile, TileCell};
 
 fn main() {
   let path_opt = env::args().nth(1);
@@ -25,11 +25,18 @@ fn main() {
 }
 
 fn run(img: DynamicImage) {
+  // pipe operator when
+  let tiles = create_tiles(&img);
+  let cells = create_cells(&tiles);
+  let table = create_candidate_table(&cells);
+  let groups = create_groups(&cells, &table);
+  create_output(&groups);
+}
+
+fn create_tiles(img: &DynamicImage) -> Vec<Tile> {
   let (width, height) = get_tile_dimensions(&img);
   let tiles_count = (width * height) as usize;
   let mut tiles = Vec::with_capacity(tiles_count);
-
-  println!("Step 1: Instantiating all tiles...");
 
   for x in 0..width {
     for y in 0..height {
@@ -44,42 +51,43 @@ fn run(img: DynamicImage) {
     }
   }
 
-  println!("Step 2: Converting tiles to cells...");
+  tiles
+}
 
-  let tile_cells = tiles
-    .iter()
-    .map(|t| RefCell::new(Some(t)))
-    .collect::<Vec<_>>();
+fn create_cells<'a>(tiles: &'a Vec<Tile<'a>>) -> Vec<TileCell<'a>> {
+  tiles.iter().map(|t| RefCell::new(Some(t))).collect()
+}
 
-  println!("Step 3: Calculating tile compatibility...");
-
+fn create_candidate_table<'a>(tiles: &'a Vec<TileCell<'a>>) -> CandidateTable<'a> {
   // subtract tiles_count because we skip comparing a tile with itself
-  let compats_count = usize::pow(tiles_count, 2) - tiles_count;
-  let mut compats = Vec::with_capacity(compats_count);
+  let tiles_count = tiles.len();
+  let capacity = usize::pow(tiles_count, 2) - tiles_count;
+  let mut table = Vec::with_capacity(capacity);
 
-  for tile_cell in &tile_cells {
-    let mut tile_compats = Vec::with_capacity(tiles_count);
+  for tile in tiles {
+    let mut candidates = Vec::with_capacity(tiles_count);
 
-    for other_cell in &tile_cells {
-      let compat = tile_cell
-        .borrow()
-        .unwrap()
-        .compat(other_cell.borrow().unwrap());
-
-      tile_compats.push(Candidate::new(other_cell, compat));
+    for other in tiles {
+      let compat = tile.borrow().unwrap().compat(other.borrow().unwrap());
+      candidates.push(Candidate::new(other, compat));
     }
 
-    tile_compats.sort_by(|a, b| a.cmp_by_compat(&b));
+    candidates.sort_by(|a, b| a.cmp_by_compat(&b));
 
-    compats.push(tile_compats);
+    table.push(candidates);
   }
 
-  println!("Step 4: Sorting into groups...");
+  table
+}
 
+fn create_groups<'a>(
+  tiles: &'a Vec<TileCell<'a>>,
+  table: &'a CandidateTable<'a>,
+) -> Vec<Group<'a>> {
   let mut groups = Vec::new();
 
-  for (n, tile_cell) in tile_cells.iter().enumerate() {
-    let candidates = &compats[n];
+  for (n, tile_cell) in tiles.iter().enumerate() {
+    let candidates = &table[n];
 
     let tile_opt = tile_cell.borrow();
     if tile_opt.is_none() {
@@ -98,7 +106,7 @@ fn run(img: DynamicImage) {
           let candidate_tile = candidate.borrow().unwrap();
           let result = group.try_add(candidate_tile);
 
-          if let Ok(_) = result {
+          if matches!(result, Ok(_)) {
             candidate.claim();
           }
         }
@@ -108,8 +116,10 @@ fn run(img: DynamicImage) {
     groups.push(group);
   }
 
-  println!("Step 5: Outputting files...");
+  groups
+}
 
+fn create_output(groups: &Vec<Group>) {
   fs::remove_dir_all("output").ok();
   fs::create_dir("output").unwrap();
 

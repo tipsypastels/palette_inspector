@@ -1,7 +1,5 @@
 use image::{Rgb, Rgba};
-use radix_fmt::radix;
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Formatter};
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum PixelColor {
@@ -26,21 +24,6 @@ impl PixelColor {
       PixelColor::Full(color) => {
         let [r, g, b] = color.0;
         (1_u32 << 24) + ((r as u32) << 16) + ((g as u32) << 8) + b as u32
-      }
-    }
-  }
-}
-
-impl Debug for PixelColor {
-  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    match self {
-      PixelColor::Empty => write!(f, "(empty)"),
-      PixelColor::Full(_) => {
-        let hex = self.as_u32();
-        let hex = format!("{}", radix(hex, 16));
-        let hex = &hex[1..=hex.len() - 1];
-
-        write!(f, "{}", hex)
       }
     }
   }
